@@ -110,5 +110,35 @@ class MutationTests(unittest.TestCase):
         self.assertEqual(fresh.label_ids, [])
 
 
+class MoveCardTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.c = make_controller(self._tmp.name)
+        self.col_a = self.c.board.columns[0].id
+        self.col_b = self.c.board.columns[1].id
+        self.k1 = self.c.add_card(self.col_a, "one").id
+        self.k2 = self.c.add_card(self.col_a, "two").id
+        self.k3 = self.c.add_card(self.col_a, "three").id
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _titles(self, col_id):
+        return [card.title for card in self.c.board.find_column(col_id).cards]
+
+    def test_reorder_within_column(self):
+        self.c.move_card(self.k3, self.col_a, 0)
+        self.assertEqual(self._titles(self.col_a), ["three", "one", "two"])
+
+    def test_move_across_columns_at_index(self):
+        self.c.move_card(self.k1, self.col_b, 0)
+        self.assertEqual(self._titles(self.col_a), ["two", "three"])
+        self.assertEqual(self._titles(self.col_b), ["one"])
+
+    def test_index_is_clamped(self):
+        self.c.move_card(self.k1, self.col_b, 999)
+        self.assertEqual(self._titles(self.col_b), ["one"])
+
+
 if __name__ == "__main__":
     unittest.main()
