@@ -46,10 +46,13 @@ class BoardIOTests(unittest.TestCase):
         leftovers = list(self.store.boards_dir.glob("*.tmp"))
         self.assertEqual(leftovers, [])
 
-    def test_second_save_creates_bak_of_previous(self):
+    def test_save_mirrors_latest_content_to_bak(self):
+        # the backup mirrors the most recent good save, never a stale one
         self.store.save_board(self._board())
-        self.store.save_board(self._board())
-        self.assertTrue((self.store.boards_dir / "b1.json.bak").exists())
+        bak = self.store.boards_dir / "b1.json.bak"
+        self.assertTrue(bak.exists())
+        backed_up = Board.from_dict(json.loads(bak.read_text(encoding="utf-8")))
+        self.assertEqual(backed_up, self._board())
 
     def test_corrupt_file_recovers_from_bak(self):
         self.store.save_board(self._board())          # creates b1.json
@@ -61,6 +64,7 @@ class BoardIOTests(unittest.TestCase):
 
     def test_corrupt_file_without_bak_raises_storeerror(self):
         self.store.save_board(self._board())
+        (self.store.boards_dir / "b1.json.bak").unlink()  # simulate a missing backup
         (self.store.boards_dir / "b1.json").write_text("nonsense", encoding="utf-8")
         with self.assertRaises(StoreError):
             self.store.load_board("b1")

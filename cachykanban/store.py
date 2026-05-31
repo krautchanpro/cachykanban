@@ -37,12 +37,9 @@ class Store:
     def _board_path(self, board_id: str) -> Path:
         return self.boards_dir / f"{board_id}.json"
 
-    def _atomic_write(self, path: Path, text: str) -> None:
+    def _write_file_atomic(self, path: Path, text: str) -> None:
+        """Write text to path atomically (temp file + fsync + os.replace)."""
         path.parent.mkdir(parents=True, exist_ok=True)
-        if path.exists():
-            # keep the last good copy before overwriting
-            backup = path.with_suffix(path.suffix + ".bak")
-            backup.write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
         fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
@@ -53,6 +50,17 @@ class Store:
         finally:
             if os.path.exists(tmp_name):
                 os.remove(tmp_name)
+
+    def _atomic_write(self, path: Path, text: str) -> None:
+        """Commit text to path, then mirror it to a sibling ``.bak``.
+
+        The backup always holds the most recent good content, so if the main
+        file is later truncated or corrupted, ``load_*`` recovers the latest
+        save rather than a stale one.
+        """
+        self._write_file_atomic(path, text)
+        backup = path.with_suffix(path.suffix + ".bak")
+        self._write_file_atomic(backup, text)
 
     def save_board(self, board: Board) -> None:
         text = json.dumps(board.to_dict(), indent=2, ensure_ascii=False)
