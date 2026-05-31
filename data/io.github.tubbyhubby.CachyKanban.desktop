@@ -5,5 +5,5 @@ Comment=Offline Kanban board with customizable columns and cards
 Exec=cachykanban
 Icon=cachykanban
 Terminal=false
-Categories=Utility;Office;ProjectManagement;
+Categories=Office;ProjectManagement;
 Keywords=Kanban;Board;Tasks;Cards;Planning;

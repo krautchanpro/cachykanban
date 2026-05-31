@@ -4,6 +4,19 @@ Offline, native Kanban board for Arch Linux (PySide6/Qt). Multiple boards,
 customizable columns, and cards with markdown notes, labels, checklists, and
 priority. Local JSON storage — no account, no network.
 
+## Double-click to run
+
+Two no-terminal options:
+
+- **Add it to your application menu (recommended):** run `./install-desktop.sh`
+  once. "CachyKanban" then appears in your KDE/GNOME launcher with its icon, and
+  can be pinned to the taskbar. The installer is user-level (no root, installs
+  under `~/.local`); re-run it if you move the project folder.
+- **Double-click the launcher in the file manager:** double-click
+  `run-cachykanban.sh` and choose *Execute*. It creates the virtualenv on first
+  run, then starts the app. (In Dolphin you may need to mark it executable once:
+  right-click → Properties → Permissions → "Is executable".)
+
 ## Run from source
 
 ```bash
@@ -14,6 +27,7 @@ python -m venv --system-site-packages .venv
 
 The `--system-site-packages` flag lets the venv use the system `pyside6` package
 (install it with `sudo pacman -S pyside6` if needed) instead of building PySide6.
+The `run-cachykanban.sh` launcher automates exactly these steps.
 
 ## Tests
 
