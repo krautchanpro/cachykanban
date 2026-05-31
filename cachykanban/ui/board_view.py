@@ -102,7 +102,9 @@ class BoardView(QScrollArea):
         order.insert(insert_at, moved_id)
         self.controller.reorder_columns(order)
         event.acceptProposedAction()
-        self.schedule_rebuild()
+        # Mutate only. The dragged column's mouseMoveEvent emits changed()
+        # (-> schedule_rebuild) once its drag.exec() returns, i.e. from outside
+        # this nested drop loop; rebuilding here would free the live source.
 
     def _column_index_at(self, drop_x: int, exclude: str) -> int:
         board = self.controller.board

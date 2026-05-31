@@ -14,7 +14,8 @@ _PRIORITY_COLOR = {"low": "#9aa3b2", "med": "#f6ad55", "high": "#fc8181"}
 class CardWidget(QFrame):
     """One card. Click to edit; drag to move. Carries its card id in mime data."""
 
-    clicked = Signal(str)  # card_id
+    clicked = Signal(str)   # card_id -> open editor
+    dropHandled = Signal()  # emitted after this card's drag.exec() returns
 
     def __init__(self, card: Card, board: Board, column_id: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -89,3 +90,8 @@ class CardWidget(QFrame):
         drag.setMimeData(mime)
         drag.setPixmap(self.grab())
         drag.exec(Qt.DropAction.MoveAction)
+        # drag.exec() ran a nested event loop; it has now returned, so we are
+        # back in the main loop and this widget is still alive. Announce the
+        # finished drag so the board rebuild is triggered from OUTSIDE the
+        # nested loop (deleting this widget from inside it is a use-after-free).
+        self.dropHandled.emit()

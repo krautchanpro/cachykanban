@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import QMimeData, QPoint, Qt, Signal
 from PySide6.QtGui import (
-    QAction, QDrag, QDragEnterEvent, QDragMoveEvent, QDropEvent, QMouseEvent,
+    QDrag, QDragEnterEvent, QDragMoveEvent, QDropEvent, QMouseEvent,
 )
 from PySide6.QtWidgets import (
     QColorDialog, QFrame, QHBoxLayout, QInputDialog, QLabel, QMenu,
@@ -66,6 +66,9 @@ class ColumnWidget(QFrame):
         for card in self._visible:
             widget = CardWidget(card, self.controller.board, column.id)
             widget.clicked.connect(self.cardClicked)
+            # A finished card drag triggers the board rebuild from the source
+            # widget (after its drag.exec returns), never from inside dropEvent.
+            widget.dropHandled.connect(self.changed)
             self._cards_box.addWidget(widget)
         outer.addLayout(self._cards_box)
 
@@ -77,17 +80,21 @@ class ColumnWidget(QFrame):
     # ---- header actions ---------------------------------------------------
     def _open_menu(self) -> None:
         menu = QMenu(self)
-        rename = QAction("Rename column", self)
-        rename.triggered.connect(self._rename)
-        recolor = QAction("Change color", self)
-        recolor.triggered.connect(self._recolor)
-        delete = QAction("Delete column", self)
-        delete.triggered.connect(self._delete)
-        menu.addAction(rename)
-        menu.addAction(recolor)
+        act_rename = menu.addAction("Rename column")
+        act_recolor = menu.addAction("Change color")
         menu.addSeparator()
-        menu.addAction(delete)
-        menu.exec(self.cursor().pos())
+        act_delete = menu.addAction("Delete column")
+        # Act on the RETURN value, not triggered() slots: a triggered slot runs
+        # inside menu.exec()'s nested loop, where a scheduled rebuild can fire
+        # and delete this column while _open_menu is still on the stack. Running
+        # the action after exec() returns keeps us in the main loop.
+        chosen = menu.exec(self.cursor().pos())
+        if chosen == act_rename:
+            self._rename()
+        elif chosen == act_recolor:
+            self._recolor()
+        elif chosen == act_delete:
+            self._delete()
 
     def _rename(self) -> None:
         name, ok = QInputDialog.getText(self, "Rename column", "Name:", text=self.column.name)
@@ -131,6 +138,10 @@ class ColumnWidget(QFrame):
         mime.setData(COLUMN_MIME, self.column.id.encode("utf-8"))
         drag.setMimeData(mime)
         drag.exec(Qt.DropAction.MoveAction)
+        # Back in the main loop after the nested drag loop returned: request the
+        # rebuild now, from outside that loop, so this column isn't freed under
+        # its own running drag.exec().
+        self.changed.emit()
 
     # ---- drop target ------------------------------------------------------
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
@@ -149,7 +160,9 @@ class ColumnWidget(QFrame):
         index = self._insertion_index(drop_y)
         self.controller.move_card(card_id, self.column.id, index)
         event.acceptProposedAction()
-        self.changed.emit()
+        # Mutate the model only. The rebuild is triggered by the dragged card's
+        # dropHandled signal once its drag.exec() returns (i.e. from outside this
+        # nested drop loop) -- rebuilding here would free the live source widget.
 
     def _insertion_index(self, drop_y: int) -> int:
         index = 0

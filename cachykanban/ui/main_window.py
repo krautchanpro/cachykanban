@@ -88,7 +88,11 @@ class MainWindow(QMainWindow):
         self._refresh_board()
 
     def _refresh_board(self) -> None:
-        self.board_view.rebuild()
+        # Defer the board rebuild: this is often called from a card's own
+        # event handler (e.g. after the modal card editor closes, while the
+        # originating CardWidget's mouseReleaseEvent is still on the stack).
+        # Destroying that widget synchronously is a use-after-free.
+        self.board_view.schedule_rebuild()
         self.sidebar.reload()
 
     def _edit_card(self, card_id: str) -> None:
