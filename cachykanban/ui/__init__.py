@@ -1,0 +1,1 @@
+"""CachyKanban Qt UI package."""

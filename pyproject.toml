@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cachykanban"
+version = "0.1.0"
+description = "Offline native Kanban board for Arch Linux (PySide6/Qt)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+  { name = "tubbyhubby" }
+]
+dependencies = [
+  "PySide6>=6.6"
+]
+
+[project.gui-scripts]
+cachykanban = "cachykanban.app:main"
+
+[tool.setuptools]
+packages = ["cachykanban", "cachykanban.ui"]
