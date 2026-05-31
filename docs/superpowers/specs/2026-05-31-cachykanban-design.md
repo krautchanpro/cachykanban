@@ -36,7 +36,7 @@ multi-device. These were considered and consciously cut from v1 to keep scope ti
 
 ## Tech Stack
 
-- **Language:** Python (>=3.10)
+- **Language:** Python (>=3.11)
 - **UI:** PySide6 / Qt Widgets
 - **Persistence:** plain JSON files (human-readable, git-friendly)
 - **Tests:** `unittest.TestCase`, run via `pytest` (dev dependency) or
@@ -92,7 +92,7 @@ focused and the business logic testable in isolation.
     io.github.tubbyhubby.CachyKanban.desktop
     cachykanban.svg           # app icon
   packaging/
-    arch/PKGBUILD             # pkgname=cachykanban; depends python-pyside6
+    arch/PKGBUILD             # pkgname=cachykanban; depends python, pyside6
 ```
 
 ### Unit responsibilities
@@ -189,9 +189,11 @@ the sibling project:
 - `pyproject.toml` with a `[project.gui-scripts]` entry:
   `cachykanban = cachykanban.app:main`.
 - `packaging/arch/PKGBUILD`: `pkgname=cachykanban`, `arch=('any')`,
-  `depends=('python' 'python-pyside6')`, builds a wheel with `python -m build` and
-  installs it with `python -m installer`, then installs the `.desktop` file and the
-  `cachykanban.svg` icon — same shape as `godot-plugin-updater`.
+  `depends=('python' 'pyside6')`. Following the `godot-plugin-updater` PKGBUILD
+  exactly: the `package()` step copies the `cachykanban/` package into the Python
+  `purelib` site-packages dir (pruning `__pycache__`), installs a small launcher
+  script to `/usr/bin/cachykanban`, and installs the `.desktop` file to
+  `/usr/share/applications/` and the `cachykanban.svg` icon to the hicolor theme.
 - `data/io.github.tubbyhubby.CachyKanban.desktop`: `Categories=Utility;Office;`,
   `Exec=cachykanban`, `Icon=cachykanban`.
 
