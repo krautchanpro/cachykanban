@@ -36,5 +36,37 @@ class LabelTests(unittest.TestCase):
         self.assertEqual(label.name, "idea")
 
 
+class CardTests(unittest.TestCase):
+    def _card(self):
+        from cachykanban.models import Card
+        return Card(
+            id="card0001",
+            title="NPC idle animation",
+            notes="wire into AnimationTree",
+            label_ids=["lbl1", "lbl2"],
+            checklist=[ChecklistItem("a", True), ChecklistItem("b", False)],
+            priority="high",
+            created="2026-05-31T00:00:00",
+            updated="2026-05-31T00:00:00",
+        )
+
+    def test_round_trip(self):
+        card = self._card()
+        from cachykanban.models import Card
+        self.assertEqual(Card.from_dict(card.to_dict()), card)
+
+    def test_progress_counts_done_over_total(self):
+        self.assertEqual(self._card().progress(), (1, 2))
+
+    def test_progress_empty_checklist(self):
+        from cachykanban.models import Card
+        self.assertEqual(Card(id="c", title="t").progress(), (0, 0))
+
+    def test_from_dict_clamps_unknown_priority_to_none(self):
+        from cachykanban.models import Card
+        card = Card.from_dict({"id": "c", "title": "t", "priority": "bogus"})
+        self.assertEqual(card.priority, "none")
+
+
 if __name__ == "__main__":
     unittest.main()
