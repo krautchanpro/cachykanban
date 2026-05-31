@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=CachyKanban
+Comment=Offline Kanban board with customizable columns and cards
+Exec=cachykanban
+Icon=cachykanban
+Terminal=false
+Categories=Utility;Office;ProjectManagement;
+Keywords=Kanban;Board;Tasks;Cards;Planning;

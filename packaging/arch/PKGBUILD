@@ -1,0 +1,23 @@
+# Maintainer: tubbyhubby
+pkgname=cachykanban
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Offline Kanban board with customizable columns and cards (PySide6/Qt)"
+arch=("any")
+url="https://github.com/tubbyhubby/cachykanban"
+license=("MIT")
+depends=("python" "pyside6")
+
+package() {
+  cd "${startdir}/../.."
+  local site_packages
+  site_packages="$(python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"
+  install -dm755 "${pkgdir}${site_packages}"
+  cp -a cachykanban "${pkgdir}${site_packages}/"
+  find "${pkgdir}${site_packages}/cachykanban" -type d -name __pycache__ -prune -exec rm -rf {} +
+  install -Dm755 data/cachykanban "${pkgdir}/usr/bin/cachykanban"
+  install -Dm644 data/io.github.tubbyhubby.CachyKanban.desktop \
+    "${pkgdir}/usr/share/applications/io.github.tubbyhubby.CachyKanban.desktop"
+  install -Dm644 data/cachykanban.svg \
+    "${pkgdir}/usr/share/icons/hicolor/scalable/apps/cachykanban.svg"
+}
