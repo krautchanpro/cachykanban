@@ -44,9 +44,9 @@ multi-device. These were considered and consciously cut from v1 to keep scope ti
 - **Packaging:** `pyproject.toml` (setuptools) + Arch `PKGBUILD` + `.desktop` entry
 
 This mirrors the structure and conventions of the existing `godot-plugin-updater`
-app (same author, same machine): setuptools build, `[project.gui-scripts]` entry
-point, `unittest`-style tests, an Arch `PKGBUILD` that builds a wheel and installs a
-`.desktop` file + icon.
+app (same author, same machine): setuptools build, a `[project.scripts]`/
+`[project.gui-scripts]` entry point, `unittest`-style tests, and an Arch `PKGBUILD`
+that installs the package into site-packages plus a `.desktop` file + icon.
 
 ## Architecture
 
