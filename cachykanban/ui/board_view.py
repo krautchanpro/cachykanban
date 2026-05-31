@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QDragEnterEvent, QDragMoveEvent, QDropEvent
 from PySide6.QtWidgets import (
     QHBoxLayout, QInputDialog, QPushButton, QScrollArea, QVBoxLayout, QWidget,
@@ -22,10 +22,29 @@ class BoardView(QScrollArea):
         self.setWidgetResizable(True)
         self.setAcceptDrops(True)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self._rebuild_pending = False
         self.rebuild()
 
     def set_query(self, query: dict) -> None:
         self.query = query
+        self.rebuild()
+
+    def schedule_rebuild(self) -> None:
+        """Rebuild on the next event-loop tick.
+
+        Drop handlers must NOT rebuild synchronously: rebuild() deletes every
+        card/column widget, but a drop runs while the dragged widget's
+        drag.exec() is still on the call stack. Deleting it there is a
+        use-after-free that aborts the process. Deferring lets the handler
+        unwind first. Multiple requests in one tick coalesce into one rebuild.
+        """
+        if self._rebuild_pending:
+            return
+        self._rebuild_pending = True
+        QTimer.singleShot(0, self._do_scheduled_rebuild)
+
+    def _do_scheduled_rebuild(self) -> None:
+        self._rebuild_pending = False
         self.rebuild()
 
     def rebuild(self) -> None:
@@ -40,7 +59,7 @@ class BoardView(QScrollArea):
             for column in board.columns:
                 col_widget = ColumnWidget(column, self.controller, self.query)
                 col_widget.cardClicked.connect(self.cardClicked)
-                col_widget.changed.connect(self.rebuild)
+                col_widget.changed.connect(self.schedule_rebuild)
                 row.addWidget(col_widget)
 
         add_col = QPushButton("+ Add column")
@@ -83,7 +102,7 @@ class BoardView(QScrollArea):
         order.insert(insert_at, moved_id)
         self.controller.reorder_columns(order)
         event.acceptProposedAction()
-        self.rebuild()
+        self.schedule_rebuild()
 
     def _column_index_at(self, drop_x: int, exclude: str) -> int:
         board = self.controller.board
