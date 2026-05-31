@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QAction, QDragEnterEvent, QDragMoveEvent, QDropEvent
+from PySide6.QtCore import QMimeData, QPoint, Qt, Signal
+from PySide6.QtGui import (
+    QAction, QDrag, QDragEnterEvent, QDragMoveEvent, QDropEvent, QMouseEvent,
+)
 from PySide6.QtWidgets import (
     QColorDialog, QFrame, QHBoxLayout, QInputDialog, QLabel, QMenu,
     QPushButton, QVBoxLayout, QWidget,
@@ -10,6 +12,8 @@ from PySide6.QtWidgets import (
 from ..controller import Controller
 from ..models import Column
 from .card_widget import CARD_MIME, CardWidget
+
+COLUMN_MIME = "application/x-cachykanban-column"
 
 
 class ColumnWidget(QFrame):
@@ -106,6 +110,27 @@ class ColumnWidget(QFrame):
         if ok and title.strip():
             self.controller.add_card(self.column.id, title.strip())
             self.changed.emit()
+
+    # ---- column drag source (from the header strip) -----------------------
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._col_press = event.position().toPoint()
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        if not (event.buttons() & Qt.MouseButton.LeftButton):
+            return
+        start = getattr(self, "_col_press", QPoint())
+        if (event.position().toPoint() - start).manhattanLength() < 24:
+            return
+        # only start a column drag from the top header strip
+        if event.position().toPoint().y() > 40:
+            return
+        drag = QDrag(self)
+        mime = QMimeData()
+        mime.setData(COLUMN_MIME, self.column.id.encode("utf-8"))
+        drag.setMimeData(mime)
+        drag.exec(Qt.DropAction.MoveAction)
 
     # ---- drop target ------------------------------------------------------
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
