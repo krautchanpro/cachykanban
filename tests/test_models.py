@@ -68,5 +68,47 @@ class CardTests(unittest.TestCase):
         self.assertEqual(card.priority, "none")
 
 
+class BoardTests(unittest.TestCase):
+    def _board(self):
+        from cachykanban.models import Board, Column, Card, Label
+        return Board(
+            id="brd00001",
+            name="SeedsOfAdventure",
+            color="#6ea8fe",
+            columns=[
+                Column(id="col1", name="Backlog", color="#7c8596",
+                       cards=[Card(id="c1", title="one")]),
+                Column(id="col2", name="Done", color="#48bb78",
+                       cards=[Card(id="c2", title="two")]),
+            ],
+            labels=[Label(id="l1", name="bug", color="#fc8181")],
+        )
+
+    def test_round_trip(self):
+        from cachykanban.models import Board
+        board = self._board()
+        self.assertEqual(Board.from_dict(board.to_dict()), board)
+
+    def test_find_column(self):
+        board = self._board()
+        self.assertEqual(board.find_column("col2").name, "Done")
+        self.assertIsNone(board.find_column("nope"))
+
+    def test_find_card_returns_column_and_card(self):
+        board = self._board()
+        col, card = board.find_card("c2")
+        self.assertEqual(col.id, "col2")
+        self.assertEqual(card.title, "two")
+
+    def test_find_card_missing_returns_none(self):
+        self.assertIsNone(self._board().find_card("ghost"))
+
+    def test_summary(self):
+        self.assertEqual(
+            self._board().summary(),
+            {"id": "brd00001", "name": "SeedsOfAdventure", "color": "#6ea8fe"},
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

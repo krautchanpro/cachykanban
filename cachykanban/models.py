@@ -88,3 +88,91 @@ class Card:
             created=str(data.get("created", "")),
             updated=str(data.get("updated", "")),
         )
+
+
+@dataclass(slots=True)
+class Column:
+    id: str
+    name: str
+    color: str = "#7c8596"
+    cards: list[Card] = field(default_factory=list)
+
+    def find_card(self, card_id: str) -> Card | None:
+        for card in self.cards:
+            if card.id == card_id:
+                return card
+        return None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "color": self.color,
+            "cards": [card.to_dict() for card in self.cards],
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "Column":
+        return cls(
+            id=str(data.get("id") or new_id()),
+            name=str(data.get("name", "")),
+            color=str(data.get("color", "#7c8596")),
+            cards=[Card.from_dict(x) for x in data.get("cards", [])],
+        )
+
+
+@dataclass(slots=True)
+class Board:
+    id: str
+    name: str
+    color: str = "#6ea8fe"
+    columns: list[Column] = field(default_factory=list)
+    labels: list[Label] = field(default_factory=list)
+    created: str = ""
+    updated: str = ""
+
+    def find_column(self, column_id: str) -> Column | None:
+        for column in self.columns:
+            if column.id == column_id:
+                return column
+        return None
+
+    def find_card(self, card_id: str) -> tuple[Column, Card] | None:
+        for column in self.columns:
+            card = column.find_card(card_id)
+            if card is not None:
+                return column, card
+        return None
+
+    def find_label(self, label_id: str) -> Label | None:
+        for label in self.labels:
+            if label.id == label_id:
+                return label
+        return None
+
+    def summary(self) -> dict[str, str]:
+        return {"id": self.id, "name": self.name, "color": self.color}
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "version": 1,
+            "id": self.id,
+            "name": self.name,
+            "color": self.color,
+            "columns": [column.to_dict() for column in self.columns],
+            "labels": [label.to_dict() for label in self.labels],
+            "created": self.created,
+            "updated": self.updated,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "Board":
+        return cls(
+            id=str(data.get("id") or new_id()),
+            name=str(data.get("name", "")),
+            color=str(data.get("color", "#6ea8fe")),
+            columns=[Column.from_dict(x) for x in data.get("columns", [])],
+            labels=[Label.from_dict(x) for x in data.get("labels", [])],
+            created=str(data.get("created", "")),
+            updated=str(data.get("updated", "")),
+        )
