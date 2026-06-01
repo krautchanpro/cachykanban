@@ -1,12 +1,40 @@
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
-    QColorDialog, QDialog, QHBoxLayout, QInputDialog, QLineEdit, QListWidget,
+    QColorDialog, QDialog, QHBoxLayout, QLabel, QLineEdit, QListWidget,
     QListWidgetItem, QPushButton, QVBoxLayout, QWidget,
 )
+from PySide6.QtGui import QColor
 from PySide6.QtCore import Qt
 
 from ..controller import Controller
+
+
+def _contrast_ink(hex_color: str) -> str:
+    """Near-black or near-white text, whichever reads better on hex_color."""
+    color = QColor(hex_color)
+    lum = (0.299 * color.red() + 0.587 * color.green() + 0.114 * color.blue()) / 255
+    return "#0c0d10" if lum > 0.6 else "#f2f4f8"
+
+
+def _chip(name: str, hex_color: str) -> QWidget:
+    """A pill showing the label name on its own color, with readable text.
+
+    Rendered as a real widget (placed via setItemWidget) rather than relying on
+    QListWidgetItem background/foreground roles, because the app's QSS styles
+    QListWidget::item and that makes Qt ignore those per-item roles.
+    """
+    holder = QWidget()
+    row = QHBoxLayout(holder)
+    row.setContentsMargins(6, 3, 6, 3)
+    chip = QLabel(name)
+    chip.setStyleSheet(
+        f"background:{hex_color}; color:{_contrast_ink(hex_color)};"
+        "border-radius:9px; padding:2px 12px; font-weight:600;"
+    )
+    row.addWidget(chip)
+    row.addStretch(1)
+    return holder
 
 
 class LabelManager(QDialog):
@@ -25,6 +53,7 @@ class LabelManager(QDialog):
         add_row = QHBoxLayout()
         self.name_edit = QLineEdit()
         self.name_edit.setPlaceholderText("New label name")
+        self.name_edit.returnPressed.connect(self._add)
         add_btn = QPushButton("Add")
         add_btn.clicked.connect(self._add)
         add_row.addWidget(self.name_edit)
@@ -47,13 +76,17 @@ class LabelManager(QDialog):
         self.reload()
 
     def reload(self) -> None:
+        selected = self._selected_id()
         self.list.clear()
         for label in self.controller.board.labels:
-            item = QListWidgetItem(label.name)
+            item = QListWidgetItem()
             item.setData(Qt.ItemDataRole.UserRole, label.id)
-            item.setForeground(Qt.GlobalColor.black)
-            item.setBackground(_qcolor(label.color))
             self.list.addItem(item)
+            widget = _chip(label.name, label.color)
+            item.setSizeHint(widget.sizeHint())
+            self.list.setItemWidget(item, widget)
+            if label.id == selected:
+                self.list.setCurrentItem(item)
 
     def _selected_id(self) -> str | None:
         item = self.list.currentItem()
@@ -71,8 +104,10 @@ class LabelManager(QDialog):
         if not label_id:
             return
         label = self.controller.board.find_label(label_id)
-        color = QColorDialog.getColor()
-        if color.isValid() and label is not None:
+        if label is None:
+            return
+        color = QColorDialog.getColor(QColor(label.color), self, "Recolor label")
+        if color.isValid():
             self.controller.update_label(label_id, label.name, color.name())
             self.reload()
 
@@ -81,8 +116,3 @@ class LabelManager(QDialog):
         if label_id:
             self.controller.delete_label(label_id)
             self.reload()
-
-
-def _qcolor(hex_color: str):
-    from PySide6.QtGui import QColor
-    return QColor(hex_color)
