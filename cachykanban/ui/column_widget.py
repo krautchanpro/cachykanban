@@ -66,6 +66,8 @@ class ColumnWidget(QFrame):
         for card in self._visible:
             widget = CardWidget(card, self.controller.board, column.id)
             widget.clicked.connect(self.cardClicked)
+            widget.editRequested.connect(self.cardClicked)
+            widget.deleteRequested.connect(self._delete_card)
             # A finished card drag triggers the board rebuild from the source
             # widget (after its drag.exec returns), never from inside dropEvent.
             widget.dropHandled.connect(self.changed)
@@ -110,6 +112,14 @@ class ColumnWidget(QFrame):
 
     def _delete(self) -> None:
         self.controller.delete_column(self.column.id)
+        self.changed.emit()
+
+    def _delete_card(self, card_id: str) -> None:
+        # Triggered from a CardWidget's context menu after menu.exec() returned,
+        # so we are back in the main loop. Mutate the model and emit changed();
+        # changed -> BoardView.schedule_rebuild defers the rebuild that destroys
+        # the card widget, avoiding a use-after-free.
+        self.controller.delete_card(card_id)
         self.changed.emit()
 
     def _add_card(self) -> None:

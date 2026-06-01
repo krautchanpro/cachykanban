@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QMimeData, QPoint, Qt, Signal
-from PySide6.QtGui import QDrag, QMouseEvent
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtGui import QContextMenuEvent, QDrag, QMouseEvent
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QMenu, QVBoxLayout, QWidget
 
 from ..models import Board, Card
 
@@ -14,8 +14,10 @@ _PRIORITY_COLOR = {"low": "#9aa3b2", "med": "#f6ad55", "high": "#fc8181"}
 class CardWidget(QFrame):
     """One card. Click to edit; drag to move. Carries its card id in mime data."""
 
-    clicked = Signal(str)   # card_id -> open editor
-    dropHandled = Signal()  # emitted after this card's drag.exec() returns
+    clicked = Signal(str)          # card_id -> open editor
+    dropHandled = Signal()         # emitted after this card's drag.exec() returns
+    editRequested = Signal(str)    # card_id -> open editor (from context menu)
+    deleteRequested = Signal(str)  # card_id -> delete this card
 
     def __init__(self, card: Card, board: Board, column_id: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -95,3 +97,30 @@ class CardWidget(QFrame):
         # finished drag so the board rebuild is triggered from OUTSIDE the
         # nested loop (deleting this widget from inside it is a use-after-free).
         self.dropHandled.emit()
+
+    # ---- context menu -----------------------------------------------------
+    def build_context_menu(self) -> tuple[QMenu, dict]:
+        """Build the right-click menu and a {label: QAction} map.
+
+        Separated from contextMenuEvent so it can be unit-tested without
+        popping a real (blocking) menu.
+        """
+        menu = QMenu(self)
+        actions = {
+            "Edit card…": menu.addAction("Edit card…"),
+        }
+        menu.addSeparator()
+        actions["Delete card"] = menu.addAction("Delete card")
+        return menu, actions
+
+    def contextMenuEvent(self, event: QContextMenuEvent) -> None:
+        menu, actions = self.build_context_menu()
+        # Act on the RETURN value, not triggered() slots: a triggered slot runs
+        # inside menu.exec()'s nested loop, and deleting this card there would
+        # free this very widget mid-event = use-after-free. Emitting after
+        # exec() returns keeps us in the main loop; the rebuild is deferred.
+        chosen = menu.exec(event.globalPos())
+        if chosen is actions["Edit card…"]:
+            self.editRequested.emit(self.card.id)
+        elif chosen is actions["Delete card"]:
+            self.deleteRequested.emit(self.card.id)
