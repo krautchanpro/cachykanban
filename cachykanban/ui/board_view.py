@@ -49,6 +49,7 @@ class BoardView(QScrollArea):
 
     def rebuild(self) -> None:
         container = QWidget()
+        container.setObjectName("BoardCanvas")
         row = QHBoxLayout(container)
         row.setContentsMargins(16, 12, 16, 12)
         row.setSpacing(12)

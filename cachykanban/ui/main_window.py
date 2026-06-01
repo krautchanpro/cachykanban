@@ -49,6 +49,7 @@ class MainWindow(QMainWindow):
     # ---- toolbar / search -------------------------------------------------
     def _build_toolbar(self) -> QWidget:
         bar = QWidget()
+        bar.setObjectName("Toolbar")
         layout = QHBoxLayout(bar)
         layout.setContentsMargins(16, 10, 16, 6)
 

@@ -19,6 +19,7 @@ class Sidebar(QWidget):
     def __init__(self, controller: Controller, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.controller = controller
+        self.setObjectName("Sidebar")
         self.setFixedWidth(210)
 
         layout = QVBoxLayout(self)

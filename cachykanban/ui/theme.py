@@ -23,21 +23,52 @@ def palette(theme: str) -> dict[str, str]:
 def qss(theme: str) -> str:
     p = palette(theme)
     return f"""
-    QWidget {{ background: {p['bg']}; color: {p['ink']};
+    /* Base: set text + font only — never a universal background. A universal
+       QWidget background paints an opaque rectangle behind every label, which
+       is what caused the dark blocks over column names, dots, and counts. */
+    QWidget {{ color: {p['ink']};
         font-family: "Inter", "Cantarell", system-ui, sans-serif; font-size: 13px; }}
+
+    /* Paint only the real surfaces. */
+    QMainWindow, QDialog {{ background: {p['bg']}; }}
+    QScrollArea {{ background: {p['bg']}; border: none; }}
+    QScrollArea > QWidget {{ background: {p['bg']}; }}   /* scroll viewport */
+    QWidget#BoardCanvas {{ background: {p['bg']}; }}     /* area behind columns */
+    QWidget#Toolbar {{ background: {p['bg']}; }}
+    QWidget#Sidebar {{ background: {p['bg']}; }}
+
+    /* Labels are see-through so they show whatever surface they sit on. */
+    QLabel {{ background: transparent; }}
+    QLabel#ColumnTitle {{ font-weight: 700; }}
+    QLabel#Muted {{ color: {p['sub']}; }}
+
     QFrame#Panel {{ background: {p['panel']}; border: 1px solid {p['line']};
         border-radius: 10px; }}
     QFrame#Card {{ background: {p['panel2']}; border: 1px solid {p['line']};
         border-radius: 8px; }}
     QFrame#Card:hover {{ border: 1px solid {p['accent']}; }}
-    QLabel#ColumnTitle {{ font-weight: 700; }}
-    QLabel#Muted {{ color: {p['sub']}; }}
+
     QPushButton {{ background: {p['panel2']}; border: 1px solid {p['line']};
         border-radius: 6px; padding: 5px 10px; }}
     QPushButton:hover {{ border: 1px solid {p['accent']}; }}
     QPushButton#Accent {{ background: {p['accent']}; color: #0c0d10; font-weight: 700; }}
-    QLineEdit, QTextEdit, QComboBox {{ background: {p['panel']};
+
+    QLineEdit, QTextEdit, QTextBrowser, QComboBox {{ background: {p['panel']};
         border: 1px solid {p['line']}; border-radius: 6px; padding: 4px 6px; }}
+
     QListWidget {{ background: {p['panel']}; border: 1px solid {p['line']};
         border-radius: 8px; }}
+    QListWidget::item {{ padding: 3px 4px; border-radius: 4px; }}
+    QListWidget::item:selected {{ background: {p['accent']}; color: #0c0d10; }}
+
+    /* Popups and tabs — keep them on theme instead of the default palette. */
+    QMenu {{ background: {p['panel']}; color: {p['ink']};
+        border: 1px solid {p['line']}; }}
+    QMenu::item {{ padding: 5px 18px; }}
+    QMenu::item:selected {{ background: {p['accent']}; color: #0c0d10; }}
+    QTabWidget::pane {{ border: 1px solid {p['line']}; border-radius: 6px; }}
+    QTabBar::tab {{ background: {p['panel2']}; color: {p['sub']};
+        padding: 5px 12px; border: 1px solid {p['line']};
+        border-top-left-radius: 6px; border-top-right-radius: 6px; }}
+    QTabBar::tab:selected {{ color: {p['ink']}; border-bottom: 2px solid {p['accent']}; }}
     """
