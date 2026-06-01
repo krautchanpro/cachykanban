@@ -1,6 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <rect width="128" height="128" rx="24" fill="#1b1d23"/>
-  <rect x="22" y="28" width="24" height="72" rx="6" fill="#7c8596"/>
-  <rect x="52" y="28" width="24" height="52" rx="6" fill="#6ea8fe"/>
-  <rect x="82" y="28" width="24" height="38" rx="6" fill="#48bb78"/>
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#272b34"/>
+      <stop offset="1" stop-color="#1b1d23"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="124" height="124" rx="28" fill="url(#tile)" stroke="#343945" stroke-width="2"/>
+
+  <!-- C: open arc on the left, accent blue -->
+  <path d="M58 38 A32 32 0 1 0 58 90"
+        fill="none" stroke="#6ea8fe" stroke-width="13" stroke-linecap="round"/>
+
+  <!-- K: stem + two arms on the right, with clear gap from the C -->
+  <line x1="86" y1="34" x2="86" y2="94" stroke="#e6e8ee" stroke-width="12" stroke-linecap="round"/>
+  <line x1="86" y1="64" x2="108" y2="38" stroke="#48bb78" stroke-width="12" stroke-linecap="round"/>
+  <line x1="86" y1="64" x2="108" y2="90" stroke="#f6ad55" stroke-width="12" stroke-linecap="round"/>
 </svg>

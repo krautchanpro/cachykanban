@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from types import TracebackType
 
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from . import __version__
@@ -13,6 +14,43 @@ from .controller import Controller
 from .store import Store
 from .ui import MainWindow
 from .ui import theme
+
+#: Reverse-DNS desktop id; must match the installed .desktop file's basename so
+#: Wayland compositors map the running window to the installed icon.
+DESKTOP_FILE_NAME = "io.github.tubbyhubby.CachyKanban"
+ICON_NAME = "cachykanban"
+
+
+def _bundled_icon_path() -> Path | None:
+    """Path to the SVG that ships in the source tree (data/cachykanban.svg)."""
+    candidate = Path(__file__).resolve().parent.parent / "data" / f"{ICON_NAME}.svg"
+    return candidate if candidate.exists() else None
+
+
+def load_app_icon() -> QIcon:
+    """Resolve the app icon, preferring the installed themed icon.
+
+    Order: the system icon theme (when installed under hicolor) -> the bundled
+    SVG in the source tree -> an empty icon as a last resort. Never raises.
+    """
+    themed = QIcon.fromTheme(ICON_NAME)
+    if not themed.isNull():
+        return themed
+    bundled = _bundled_icon_path()
+    if bundled is not None:
+        return QIcon(str(bundled))
+    return QIcon()
+
+
+def apply_app_identity(app: QApplication) -> None:
+    """Set the window icon and the Wayland/X11 desktop-file association.
+
+    setDesktopFileName is what lets KDE/Wayland link the toplevel window to the
+    installed .desktop entry (and therefore its icon); without it the taskbar
+    and alt-tab show a generic placeholder regardless of the icon file.
+    """
+    QApplication.setDesktopFileName(DESKTOP_FILE_NAME)
+    app.setWindowIcon(load_app_icon())
 
 
 def _log_unhandled(
@@ -81,6 +119,7 @@ def main(argv: list[str] | None = None) -> int:
     app.setApplicationName("CachyKanban")
     app.setApplicationDisplayName("CachyKanban")
     app.setApplicationVersion(__version__)
+    apply_app_identity(app)
 
     store = Store()
     install_exception_guard(store)

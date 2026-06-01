@@ -22,6 +22,17 @@ DESKTOP_FILE="$APPS_DIR/io.github.tubbyhubby.CachyKanban.desktop"
 mkdir -p "$APPS_DIR" "$ICONS_DIR"
 install -m644 "$ROOT/data/cachykanban.svg" "$ICONS_DIR/cachykanban.svg"
 
+# Also install sized PNGs when a rasterizer is available — some panels and
+# launchers prefer fixed-size PNGs over the scalable SVG.
+ICON_ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor"
+if command -v rsvg-convert >/dev/null 2>&1; then
+    for s in 16 32 48 64 128 256; do
+        mkdir -p "$ICON_ROOT/${s}x${s}/apps"
+        rsvg-convert -w "$s" -h "$s" "$ROOT/data/cachykanban.svg" \
+            -o "$ICON_ROOT/${s}x${s}/apps/cachykanban.png" 2>/dev/null || true
+    done
+fi
+
 cat > "$DESKTOP_FILE" <<EOF
 [Desktop Entry]
 Type=Application

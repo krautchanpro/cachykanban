@@ -7,6 +7,7 @@ arch=("any")
 url="https://github.com/tubbyhubby/cachykanban"
 license=("MIT")
 depends=("python" "pyside6")
+makedepends=("librsvg")
 
 package() {
   cd "${startdir}/../.."
@@ -20,4 +21,10 @@ package() {
     "${pkgdir}/usr/share/applications/io.github.tubbyhubby.CachyKanban.desktop"
   install -Dm644 data/cachykanban.svg \
     "${pkgdir}/usr/share/icons/hicolor/scalable/apps/cachykanban.svg"
+  # Sized PNGs alongside the scalable SVG for panels/launchers that want them.
+  for s in 16 32 48 64 128 256; do
+    install -dm755 "${pkgdir}/usr/share/icons/hicolor/${s}x${s}/apps"
+    rsvg-convert -w "$s" -h "$s" data/cachykanban.svg \
+      -o "${pkgdir}/usr/share/icons/hicolor/${s}x${s}/apps/cachykanban.png"
+  done
 }
