@@ -12,7 +12,7 @@ from . import theme
 from .board_view import BoardView
 from .card_editor import CardEditor
 from .label_manager import LabelManager
-from .sidebar import Sidebar
+from .project_selector import ProjectSelector
 
 
 class MainWindow(QMainWindow):
@@ -23,25 +23,14 @@ class MainWindow(QMainWindow):
         self.resize(1180, 760)
 
         central = QWidget()
-        root = QHBoxLayout(central)
+        root = QVBoxLayout(central)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
-
-        self.sidebar = Sidebar(controller)
-        self.sidebar.boardSelected.connect(self._open_board)
-        self.sidebar.changed.connect(self._refresh_board)
-        root.addWidget(self.sidebar)
-
-        right = QWidget()
-        right_layout = QVBoxLayout(right)
-        right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.setSpacing(0)
-        right_layout.addWidget(self._build_toolbar())
+        root.addWidget(self._build_toolbar())
 
         self.board_view = BoardView(controller)
         self.board_view.cardClicked.connect(self._edit_card)
-        right_layout.addWidget(self.board_view)
-        root.addWidget(right, 1)
+        root.addWidget(self.board_view, 1)
 
         self.setCentralWidget(central)
         self._install_shortcuts()
@@ -52,6 +41,13 @@ class MainWindow(QMainWindow):
         bar.setObjectName("Toolbar")
         layout = QHBoxLayout(bar)
         layout.setContentsMargins(16, 10, 16, 6)
+
+        self.project_selector = ProjectSelector(self.controller)
+        # Convenience alias for integrations/tests that need the native combo.
+        self.project_box = self.project_selector.project_box
+        self.project_selector.projectSelected.connect(self._open_board)
+        self.project_selector.changed.connect(self._refresh_board)
+        layout.addWidget(self.project_selector)
 
         self.search_edit = QLineEdit()
         self.search_edit.setPlaceholderText("Search cards…  (Ctrl+K)")
@@ -94,7 +90,7 @@ class MainWindow(QMainWindow):
         # originating CardWidget's mouseReleaseEvent is still on the stack).
         # Destroying that widget synchronously is a use-after-free.
         self.board_view.schedule_rebuild()
-        self.sidebar.reload()
+        self.project_selector.reload()
 
     def _edit_card(self, card_id: str) -> None:
         dialog = CardEditor(card_id, self.controller, self)

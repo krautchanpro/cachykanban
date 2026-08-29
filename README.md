@@ -1,8 +1,8 @@
 # CachyKanban
 
-Offline, native Kanban board for Arch Linux (PySide6/Qt). Multiple boards,
-customizable columns, and cards with markdown notes, labels, checklists, and
-priority. Local JSON storage — no account, no network.
+Offline, native Kanban board for Arch Linux (PySide6/Qt). Multiple projects,
+each with its own board, customizable columns, and cards with markdown notes,
+labels, checklists, and priority. Local JSON storage — no account, no network.
 
 ## Double-click to run
 
@@ -48,13 +48,16 @@ makepkg -si
 
 ## Data location
 
-Boards are stored as JSON under `~/.local/share/cachykanban/`
+Projects/boards are stored as JSON under `~/.local/share/cachykanban/`
 (`index.json` + `boards/<id>.json`), with `.bak` copies for crash recovery.
-Honors `$XDG_DATA_HOME`.
+The index remembers the last-opened project and safely falls back to the first
+available project when upgrading older or stale index data. Honors
+`$XDG_DATA_HOME`.
 
 ## Features
 
-- Multiple boards in a left sidebar (add / rename / recolor / delete)
+- Multiple isolated projects selected from the top-left dropdown (add /
+  rename / recolor / delete from the adjacent project menu)
 - Customizable columns: add, rename, recolor, drag-reorder, delete
 - Cards with title, markdown notes (live preview), colored labels, checklists,
   and priority

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable
 
 from .models import Board, Card, Column, Label, new_id
-from .store import Store
+from .store import Store, StoreError
 
 DEFAULT_COLUMNS: tuple[str, ...] = ("Backlog", "In Progress", "Done")
 DEFAULT_COLUMN_COLORS = {"Backlog": "#7c8596", "In Progress": "#6ea8fe", "Done": "#48bb78"}
@@ -25,7 +25,12 @@ class Controller:
     def __init__(self, store: Store) -> None:
         self.store = store
         self.now: Callable[[], str] = _iso_now
-        self.index: dict[str, Any] = {"version": 1, "theme": "dark", "boards": []}
+        self.index: dict[str, Any] = {
+            "version": 1,
+            "theme": "dark",
+            "boards": [],
+            "active_project_id": None,
+        }
         self.board: Board | None = None
 
     # ---- properties -------------------------------------------------------
@@ -34,24 +39,79 @@ class Controller:
         return self.index["boards"]
 
     @property
+    def active_project_id(self) -> str | None:
+        """The last project opened, if it still refers to a known board."""
+        value = self.index.get("active_project_id")
+        return value if isinstance(value, str) else None
+
+    @property
     def theme_name(self) -> str:
         return self.index.get("theme", "dark")
 
     # ---- lifecycle --------------------------------------------------------
     def load(self) -> None:
-        self.index = self.store.load_index()
+        loaded = self.store.load_index()
+        # Older index files do not have active_project_id.  Keep their board
+        # summaries, while filtering malformed/stale entries so a bad index
+        # cannot prevent the app from starting.
+        if not isinstance(loaded, dict):
+            loaded = {}
+        summaries = loaded.get("boards", [])
+        if not isinstance(summaries, list):
+            summaries = []
+        valid_summaries: list[dict[str, str]] = []
+        for summary in summaries:
+            if not isinstance(summary, dict):
+                continue
+            board_id = summary.get("id")
+            name = summary.get("name")
+            color = summary.get("color")
+            if not all(isinstance(value, str) and value for value in (board_id, name, color)):
+                continue
+            try:
+                self.store.load_board(board_id)
+            except StoreError:
+                # Leave unreadable board files untouched; omit only their
+                # stale index entries and fall back to another board/default.
+                continue
+            valid_summaries.append({"id": board_id, "name": name, "color": color})
+        self.index = {
+            "version": loaded.get("version", 1),
+            "theme": loaded.get("theme", "dark"),
+            "boards": valid_summaries,
+            "active_project_id": loaded.get(
+                "active_project_id", loaded.get("active_board_id")
+            ),
+        }
         if not self.summaries:
             board = self._new_default_board()
             self.summaries.append(board.summary())
             self.store.save_board(board)
+            self.index["active_project_id"] = board.id
             self._save_index()
             self.board = board
         else:
-            self.open_board(self.summaries[0]["id"])
+            preferred = self.active_project_id
+            board_id = next(
+                (
+                    summary["id"]
+                    for summary in self.summaries
+                    if summary["id"] == preferred
+                ),
+                self.summaries[0]["id"],
+            )
+            self.open_board(board_id)
 
     def open_board(self, board_id: str) -> Board:
         self.board = self.store.load_board(board_id)
+        self.index["active_project_id"] = board_id
+        self._save_index()
         return self.board
+
+    # Project terminology is exposed alongside the original board API so
+    # callers can adopt the UI language without breaking existing clients.
+    def open_project(self, project_id: str) -> Board:
+        return self.open_board(project_id)
 
     def set_theme(self, theme: str) -> None:
         self.index["theme"] = theme
@@ -66,6 +126,9 @@ class Controller:
         self.store.save_board(board)
         self._save_index()
         return board
+
+    def add_project(self, name: str, color: str = "#6ea8fe") -> Board:
+        return self.add_board(name, color)
 
     def rename_board(self, board_id: str, name: str) -> None:
         self._summary(board_id)["name"] = name
@@ -89,6 +152,9 @@ class Controller:
             self.board = None
             if self.summaries:
                 self.open_board(self.summaries[0]["id"])
+            else:
+                self.index["active_project_id"] = None
+                self._save_index()
 
     def reorder_boards(self, ordered_ids: list[str]) -> None:
         by_id = {s["id"]: s for s in self.summaries}
