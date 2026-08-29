@@ -1,7 +1,7 @@
 # CachyKanban
 
 Offline, native Kanban board for Arch Linux (PySide6/Qt). Multiple projects,
-each with its own board, customizable columns, and cards with markdown notes,
+each with multiple boards, customizable columns, and cards with markdown notes,
 labels, checklists, and priority. Local JSON storage — no account, no network.
 
 ## Double-click to run
@@ -48,16 +48,21 @@ makepkg -si
 
 ## Data location
 
-Projects/boards are stored as JSON under `~/.local/share/cachykanban/`
-(`index.json` + `boards/<id>.json`), with `.bak` copies for crash recovery.
-The index remembers the last-opened project and safely falls back to the first
-available project when upgrading older or stale index data. Honors
-`$XDG_DATA_HOME`.
+Projects are stored as one self-contained JSON file per project under
+`~/.local/share/cachykanban/projects/` (`<project-id>.json`). Each file nests
+that project's boards, columns, labels, and cards; `.bak` copies are written
+for crash recovery. `index.json` contains only project summaries, the active
+project ID, and app settings. Honors `$XDG_DATA_HOME`.
+
+On first launch after upgrading from v1, the old `boards/<id>.json` files are
+wrapped into one project each. Those legacy files are intentionally left in
+place as recovery copies; migration is safe to retry and skips stale or
+corrupt index entries.
 
 ## Features
 
-- Multiple isolated projects selected from the top-left dropdown (add /
-  rename / recolor / delete from the adjacent project menu)
+- Multiple projects and boards selected from distinct top-left dropdowns (add /
+  rename / recolor / delete from their adjacent menus)
 - Customizable columns: add, rename, recolor, drag-reorder, delete
 - Cards with title, markdown notes (live preview), colored labels, checklists,
   and priority

@@ -176,3 +176,76 @@ class Board:
             created=str(data.get("created", "")),
             updated=str(data.get("updated", "")),
         )
+
+
+@dataclass(slots=True)
+class Project:
+    """A project and all of its boards.
+
+    Projects are the persistence boundary.  A project file contains the
+    complete board graph, so saving a project can never leave cards stranded
+    in a separate board file.
+    """
+
+    id: str
+    name: str
+    color: str = "#6ea8fe"
+    boards: list[Board] = field(default_factory=list)
+    active_board_id: str | None = None
+    created: str = ""
+    updated: str = ""
+
+    def find_board(self, board_id: str) -> Board | None:
+        for board in self.boards:
+            if board.id == board_id:
+                return board
+        return None
+
+    @property
+    def active_board(self) -> Board | None:
+        if self.active_board_id:
+            board = self.find_board(self.active_board_id)
+            if board is not None:
+                return board
+        return self.boards[0] if self.boards else None
+
+    # Transitional conveniences for integrations that used the old board
+    # object returned by add_project(). New code should use ``active_board``.
+    @property
+    def columns(self) -> list[Column]:
+        return self.active_board.columns if self.active_board else []
+
+    @property
+    def labels(self) -> list[Label]:
+        return self.active_board.labels if self.active_board else []
+
+    def summary(self) -> dict[str, str]:
+        return {"id": self.id, "name": self.name, "color": self.color}
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "version": 2,
+            "id": self.id,
+            "name": self.name,
+            "color": self.color,
+            "boards": [board.to_dict() for board in self.boards],
+            "active_board_id": self.active_board_id,
+            "created": self.created,
+            "updated": self.updated,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "Project":
+        raw_boards = data.get("boards", [])
+        if not isinstance(raw_boards, list):
+            raw_boards = []
+        active = data.get("active_board_id")
+        return cls(
+            id=str(data.get("id") or new_id()),
+            name=str(data.get("name", "")),
+            color=str(data.get("color", "#6ea8fe")),
+            boards=[Board.from_dict(item) for item in raw_boards if isinstance(item, dict)],
+            active_board_id=str(active) if active else None,
+            created=str(data.get("created", "")),
+            updated=str(data.get("updated", "")),
+        )

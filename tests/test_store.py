@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 from cachykanban.store import Store, StoreError, SCHEMA_VERSION
-from cachykanban.models import Board, Column, Card
+from cachykanban.models import Board, Column, Card, Project, Label
 
 
 class PathTests(unittest.TestCase):
@@ -21,6 +21,7 @@ class PathTests(unittest.TestCase):
             store = Store(base=Path(tmp) / "kb")
             self.assertEqual(store.base, Path(tmp) / "kb")
             self.assertEqual(store.boards_dir, Path(tmp) / "kb" / "boards")
+            self.assertEqual(store.projects_dir, Path(tmp) / "kb" / "projects")
             self.assertEqual(store.index_path, Path(tmp) / "kb" / "index.json")
 
 
@@ -86,19 +87,64 @@ class IndexTests(unittest.TestCase):
         index = self.store.load_index()
         self.assertEqual(index["version"], SCHEMA_VERSION)
         self.assertEqual(index["theme"], "dark")
-        self.assertEqual(index["boards"], [])
+        self.assertEqual(index["projects"], [])
+        self.assertIsNone(index["active_project_id"])
 
     def test_save_then_load_index(self):
         index = {"version": SCHEMA_VERSION, "theme": "light",
-                 "boards": [{"id": "b1", "name": "B", "color": "#fff"}]}
+                 "projects": [{"id": "p1", "name": "P", "color": "#fff"}],
+                 "active_project_id": "p1"}
         self.store.save_index(index)
         self.assertEqual(self.store.load_index(), index)
 
     def test_corrupt_index_recovers_from_bak(self):
-        self.store.save_index({"version": SCHEMA_VERSION, "theme": "dark", "boards": []})
-        self.store.save_index({"version": SCHEMA_VERSION, "theme": "light", "boards": []})
+        self.store.save_index({"version": SCHEMA_VERSION, "theme": "dark", "projects": [], "active_project_id": None})
+        self.store.save_index({"version": SCHEMA_VERSION, "theme": "light", "projects": [], "active_project_id": None})
         self.store.index_path.write_text("broken", encoding="utf-8")
         self.assertEqual(self.store.load_index()["theme"], "light")
+
+
+class ProjectIOTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.store = Store(base=Path(self._tmp.name))
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _project(self):
+        first = Board(
+            id="b1", name="First", color="#fff",
+            columns=[Column(id="c1", name="Todo", cards=[Card(id="k1", title="one")])],
+            labels=[Label(id="l1", name="bug", color="#f00")],
+        )
+        second = Board(
+            id="b2", name="Second", color="#000",
+            columns=[Column(id="c2", name="Done", cards=[Card(id="k2", title="two")])],
+        )
+        return Project(
+            id="p1", name="Project", color="#6ea8fe", boards=[first, second],
+            active_board_id="b2", created="created", updated="updated",
+        )
+
+    def test_save_load_round_trip_contains_all_nested_boards_cards_labels(self):
+        project = self._project()
+        self.store.save_project(project)
+        path = self.store.projects_dir / "p1.json"
+        self.assertTrue(path.exists())
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(len(payload["boards"]), 2)
+        self.assertEqual(payload["boards"][0]["columns"][0]["cards"][0]["id"], "k1")
+        self.assertEqual(payload["boards"][0]["labels"][0]["id"], "l1")
+        self.assertEqual(self.store.load_project("p1"), project)
+
+    def test_save_project_mirrors_backup_and_recovers_corrupt_main(self):
+        project = self._project()
+        self.store.save_project(project)
+        backup = self.store.projects_dir / "p1.json.bak"
+        self.assertTrue(backup.exists())
+        (self.store.projects_dir / "p1.json").write_text("not json", encoding="utf-8")
+        self.assertEqual(self.store.load_project("p1"), project)
 
 
 if __name__ == "__main__":

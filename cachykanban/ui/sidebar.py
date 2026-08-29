@@ -11,7 +11,7 @@ from ..controller import Controller
 
 
 class Sidebar(QWidget):
-    """Board list with add/rename/recolor/delete. Emits the selected board id."""
+    """Board list for the active project with add/rename/delete actions."""
 
     boardSelected = Signal(str)
     changed = Signal()
@@ -41,7 +41,7 @@ class Sidebar(QWidget):
     def reload(self) -> None:
         self.list.clear()
         current_id = self.controller.board.id if self.controller.board else None
-        for summary in self.controller.summaries:
+        for summary in self.controller.board_summaries:
             item = QListWidgetItem(summary["name"])
             item.setData(Qt.ItemDataRole.UserRole, summary["id"])
             self.list.addItem(item)

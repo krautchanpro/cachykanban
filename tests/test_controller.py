@@ -21,9 +21,10 @@ class LoadTests(unittest.TestCase):
     def tearDown(self):
         self._tmp.cleanup()
 
-    def test_first_load_creates_one_default_board(self):
+    def test_first_load_creates_one_default_project_and_board(self):
         c = make_controller(self._tmp.name)
         self.assertEqual(len(c.summaries), 1)
+        self.assertIsNotNone(c.project)
         self.assertIsNotNone(c.board)
         self.assertEqual([col.name for col in c.board.columns], list(DEFAULT_COLUMNS))
 
@@ -45,23 +46,25 @@ class MutationTests(unittest.TestCase):
     def tearDown(self):
         self._tmp.cleanup()
 
-    def test_add_board_appends_and_persists_summary(self):
+    def test_add_board_nests_and_persists_in_active_project(self):
         board = self.c.add_board("Second", "#48bb78")
-        self.assertIn(board.id, [s["id"] for s in self.c.summaries])
-        self.assertTrue(self.c.store.board_exists(board.id))
+        self.assertIn(board, self.c.project.boards)
+        self.assertTrue(self.c.store.project_exists(self.c.project.id))
+        self.assertNotIn(board.id, [s["id"] for s in self.c.summaries])
 
     def test_rename_and_recolor_board(self):
         bid = self.c.board.id
         self.c.rename_board(bid, "Renamed")
         self.c.recolor_board(bid, "#000000")
-        summary = next(s for s in self.c.summaries if s["id"] == bid)
-        self.assertEqual(summary["name"], "Renamed")
-        self.assertEqual(summary["color"], "#000000")
+        self.assertEqual(self.c.board.name, "Renamed")
+        self.assertEqual(self.c.board.color, "#000000")
+        self.assertEqual(self.c.project.name, "My Project")
 
-    def test_delete_board_removes_file_and_summary(self):
+    def test_delete_board_removes_nested_board_but_keeps_project_file(self):
         extra = self.c.add_board("Temp", "#fff")
         self.c.delete_board(extra.id)
-        self.assertNotIn(extra.id, [s["id"] for s in self.c.summaries])
+        self.assertNotIn(extra.id, [board.id for board in self.c.project.boards])
+        self.assertTrue(self.c.store.project_exists(self.c.project.id))
         self.assertFalse(self.c.store.board_exists(extra.id))
 
     def test_add_rename_delete_column(self):

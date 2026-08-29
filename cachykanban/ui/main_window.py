@@ -45,7 +45,9 @@ class MainWindow(QMainWindow):
         self.project_selector = ProjectSelector(self.controller)
         # Convenience alias for integrations/tests that need the native combo.
         self.project_box = self.project_selector.project_box
-        self.project_selector.projectSelected.connect(self._open_board)
+        self.board_box = self.project_selector.board_box
+        self.project_selector.projectSelected.connect(self._open_project)
+        self.project_selector.boardSelected.connect(self._open_board)
         self.project_selector.changed.connect(self._refresh_board)
         layout.addWidget(self.project_selector)
 
@@ -80,6 +82,10 @@ class MainWindow(QMainWindow):
         })
 
     # ---- actions ----------------------------------------------------------
+    def _open_project(self, project_id: str) -> None:
+        self.controller.open_project(project_id)
+        self._refresh_board()
+
     def _open_board(self, board_id: str) -> None:
         self.controller.open_board(board_id)
         self._refresh_board()
