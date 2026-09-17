@@ -10,6 +10,9 @@ web interface for access from other devices on the same Tailscale network.
 The companion web interface uses the same project files as the desktop app. It
 supports switching projects and boards, adding and editing cards, labels,
 checklists, priorities, moving cards between columns, archiving, and deletion.
+The **Card overview** button shows every workflow column together and provides
+an All/column filter for quickly narrowing the board to Backlog, In Progress,
+Done, or any custom column.
 It listens only on `127.0.0.1:8766`; Tailscale Serve supplies private HTTPS to
 devices signed into this tailnet.
 

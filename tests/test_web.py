@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 from urllib.parse import urlencode
 
+from cachykanban.controller import Controller
 from cachykanban.store import Store
 from cachykanban.web import CachyKanbanServer, HOST, PORT
 
@@ -69,6 +70,50 @@ class WebServerTests(unittest.TestCase):
         status, _, body = self.request("GET", response_headers["Location"])
         self.assertEqual(status, 200)
         self.assertIn("Remote card", body)
+
+    def test_card_overview_lists_all_columns_and_filters_one(self):
+        controller = Controller(self.store)
+        controller.load()
+        project_id = controller.project.id
+        board_id = controller.board.id
+        backlog, in_progress, done = controller.board.columns
+        controller.add_card(backlog.id, "Backlog overview card")
+        controller.add_card(in_progress.id, "Progress overview card")
+        controller.add_card(done.id, "Done overview card")
+
+        query = urlencode({
+            "project": project_id,
+            "board": board_id,
+            "view": "overview",
+        })
+        status, _, body = self.request("GET", f"/?{query}")
+        self.assertEqual(status, 200)
+        self.assertIn('class="overview"', body)
+        self.assertIn("Backlog overview card", body)
+        self.assertIn("Progress overview card", body)
+        self.assertIn("Done overview card", body)
+        self.assertIn("Backlog (1)", body)
+        self.assertIn("In Progress (1)", body)
+        self.assertIn("Done (1)", body)
+        self.assertIn('name="return_view" value="overview"', body)
+
+        query = urlencode({
+            "project": project_id,
+            "board": board_id,
+            "view": "overview",
+            "column": backlog.id,
+        })
+        status, _, body = self.request("GET", f"/?{query}")
+        self.assertEqual(status, 200)
+        self.assertIn("Backlog overview card", body)
+        self.assertNotIn("Progress overview card", body)
+        self.assertNotIn("Done overview card", body)
+
+    def test_board_view_has_overview_button(self):
+        status, _, body = self.request("GET", "/")
+        self.assertEqual(status, 200)
+        self.assertIn("Card overview", body)
+        self.assertIn("view=overview", body)
 
     def test_post_without_csrf_is_rejected(self):
         payload = urlencode({"project_id": "x", "board_id": "x", "title": "Nope"})
