@@ -10,7 +10,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, urlencode, urlparse
 
 from .controller import Controller
-from .models import Card, ChecklistItem, Column, PRIORITIES
+from .models import Board, Card, ChecklistItem, Column, PRIORITIES
 from .store import Store, StoreError
 
 HOST = "127.0.0.1"
@@ -66,6 +66,8 @@ def _page(title: str, body: str, *, status: str = "") -> str:
       padding:11px; box-shadow:var(--shadow) }}
     .card-title {{ display:flex; justify-content:space-between; gap:8px; font-weight:700 }}
     .priority {{ color:#ffc46b; font-size:12px; text-transform:uppercase }}
+    .board-badge {{ display:inline-block; color:var(--muted); background:#ffffff0c; border-radius:5px;
+      padding:2px 6px; margin-top:7px; font-size:12px }}
     .labels {{ display:flex; gap:5px; flex-wrap:wrap; margin-top:7px }}
     .label {{ border-left:4px solid var(--label); background:#ffffff0c; border-radius:5px; padding:2px 6px; font-size:12px }}
     .notes {{ color:#c9d1dc; white-space:pre-wrap; margin:.65rem 0 0 }}
@@ -286,56 +288,131 @@ class CachyKanbanHandler(BaseHTTPRequestHandler):
           <select name="board" aria-label="Board">{board_options}</select>
           <button type="submit">Open</button></form></header>"""
         if view == "overview":
-            content = self._render_overview(controller, column_filter)
+            content = self._render_project_overview(controller, column_filter)
             board_url = self._url(project.id, board.id)
             heading_action = f'<a class="button" href="{_escape(board_url)}">Board view</a>'
+            heading = f"{project.name} overview"
         else:
             columns = "".join(self._render_column(controller, column) for column in board.columns)
             if not columns:
                 columns = '<p class="empty">This board has no columns. Add one in the desktop app.</p>'
             content = f'<section class="board">{columns}</section>'
             overview_url = self._url(project.id, board.id, view="overview")
-            heading_action = f'<a class="button" href="{_escape(overview_url)}">Card overview</a>'
+            heading_action = f'<a class="button" href="{_escape(overview_url)}">Project overview</a>'
+            heading = board.name
         body = (
-            f'{header}<main><div class="board-heading"><h2>{_escape(board.name)}</h2>'
+            f'{header}<main><div class="board-heading"><h2>{_escape(heading)}</h2>'
             f'{heading_action}</div>{content}</main>'
         )
         return _page(board.name, body, status=status)
 
-    def _render_overview(self, controller: Controller, column_filter: str) -> str:
+    @staticmethod
+    def _column_key(name: str) -> str:
+        return " ".join(name.casefold().split())
+
+    def _render_project_overview(
+        self, controller: Controller, column_filter: str
+    ) -> str:
         board = controller.board
         project = controller.project
         assert board is not None and project is not None
-        valid_ids = {column.id for column in board.columns}
-        selected = column_filter if column_filter in valid_ids else ""
+
+        groups: dict[str, dict[str, object]] = {}
+        for source_board in project.boards:
+            for source_column in source_board.columns:
+                key = self._column_key(source_column.name)
+                group = groups.setdefault(
+                    key,
+                    {
+                        "name": source_column.name,
+                        "color": source_column.color,
+                        "cards": [],
+                        "archived": [],
+                    },
+                )
+                for card in source_column.cards:
+                    target = "archived" if card.archived else "cards"
+                    group[target].append((source_board, source_column, card))
+
+        selected = self._column_key(column_filter)
+        if selected not in groups:
+            selected = ""
         all_url = self._url(project.id, board.id, view="overview")
         filters = [
             f'<a class="button {"active" if not selected else ""}" href="{_escape(all_url)}">All</a>'
         ]
-        for column in board.columns:
+        for key, group in groups.items():
             url = self._url(
-                project.id, board.id, view="overview", column_id=column.id
+                project.id, board.id, view="overview", column_id=key
             )
-            count = sum(not card.archived for card in column.cards)
+            count = len(group["cards"])
             filters.append(
-                f'<a class="button {"active" if selected == column.id else ""}" '
-                f'href="{_escape(url)}">{_escape(column.name)} ({count})</a>'
+                f'<a class="button {"active" if selected == key else ""}" '
+                f'href="{_escape(url)}">{_escape(group["name"])} ({count})</a>'
             )
         visible = [
-            column for column in board.columns if not selected or column.id == selected
+            (key, group)
+            for key, group in groups.items()
+            if not selected or key == selected
         ]
         columns = "".join(
-            self._render_column(
-                controller, column, return_view="overview", return_column=selected
-            )
-            for column in visible
+            self._render_project_group(controller, key, group, selected)
+            for key, group in visible
         )
         if not columns:
-            columns = '<p class="empty">This board has no columns.</p>'
+            columns = '<p class="empty">This project has no board columns.</p>'
         return (
             '<nav class="filters" aria-label="Filter cards">'
             + "".join(filters)
             + f'</nav><section class="overview">{columns}</section>'
+        )
+
+    def _render_project_group(
+        self,
+        controller: Controller,
+        key: str,
+        group: dict[str, object],
+        selected: str,
+    ) -> str:
+        cards = group["cards"]
+        archived_cards = group["archived"]
+        rendered = "".join(
+            self._render_card(
+                controller,
+                column,
+                card,
+                return_view="overview",
+                return_column=selected,
+                source_board=source_board,
+                show_board=True,
+            )
+            for source_board, column, card in cards
+        )
+        if not rendered:
+            rendered = '<p class="empty">No cards yet</p>'
+        archived = ""
+        if archived_cards:
+            archived = (
+                f'<details><summary>Archived ({len(archived_cards)})</summary>'
+                + "".join(
+                    self._render_card(
+                        controller,
+                        column,
+                        card,
+                        return_view="overview",
+                        return_column=selected,
+                        source_board=source_board,
+                        show_board=True,
+                    )
+                    for source_board, column, card in archived_cards
+                )
+                + "</details>"
+            )
+        return (
+            f'<article class="column" data-column="{_escape(key)}" '
+            f'style="--column:{_escape(group["color"])}">'
+            f'<div class="column-head"><h3>{_escape(group["name"])}</h3>'
+            f'<span class="count">{len(cards)}</span></div>{rendered}{archived}</article>'
         )
 
     def _render_column(
@@ -389,12 +466,18 @@ class CachyKanbanHandler(BaseHTTPRequestHandler):
         card: Card,
         return_view: str = "",
         return_column: str = "",
+        source_board: Board | None = None,
+        show_board: bool = False,
     ) -> str:
-        board = controller.board
+        board = source_board or controller.board
         project = controller.project
         assert board is not None and project is not None
         hidden = self._hidden(
             project.id, board.id, return_view, return_column
+        )
+        board_badge = (
+            f'<span class="board-badge">{_escape(board.name)}</span>'
+            if show_board else ""
         )
         labels_by_id = {label.id: label for label in board.labels}
         labels = "".join(
@@ -423,7 +506,7 @@ class CachyKanbanHandler(BaseHTTPRequestHandler):
             for item in board.columns
         )
         return f"""<article class="card">
-          <div class="card-title"><span>{_escape(card.title)}</span>{priority}</div>{labels}{notes}{progress}
+          <div class="card-title"><span>{_escape(card.title)}</span>{priority}</div>{board_badge}{labels}{notes}{progress}
           <details><summary>Edit</summary>
             <form class="editor" method="post" action="/card/update">{hidden}
               <input type="hidden" name="card_id" value="{_escape(card.id)}">

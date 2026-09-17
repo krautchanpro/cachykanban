@@ -71,15 +71,20 @@ class WebServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn("Remote card", body)
 
-    def test_card_overview_lists_all_columns_and_filters_one(self):
+    def test_project_overview_aggregates_all_boards_and_filters_status(self):
         controller = Controller(self.store)
         controller.load()
         project_id = controller.project.id
         board_id = controller.board.id
         backlog, in_progress, done = controller.board.columns
-        controller.add_card(backlog.id, "Backlog overview card")
+        controller.add_card(backlog.id, "First board backlog card")
         controller.add_card(in_progress.id, "Progress overview card")
         controller.add_card(done.id, "Done overview card")
+        second_board = controller.add_board("Second Board")
+        second_backlog, second_progress, second_done = second_board.columns
+        controller.add_card(second_backlog.id, "Second board backlog card")
+        controller.add_card(second_progress.id, "Second board progress card")
+        controller.add_card(second_done.id, "Second board done card")
 
         query = urlencode({
             "project": project_id,
@@ -89,30 +94,37 @@ class WebServerTests(unittest.TestCase):
         status, _, body = self.request("GET", f"/?{query}")
         self.assertEqual(status, 200)
         self.assertIn('class="overview"', body)
-        self.assertIn("Backlog overview card", body)
+        self.assertIn("First board backlog card", body)
+        self.assertIn("Second board backlog card", body)
+        self.assertIn("Second Board", body)
         self.assertIn("Progress overview card", body)
+        self.assertIn("Second board progress card", body)
         self.assertIn("Done overview card", body)
-        self.assertIn("Backlog (1)", body)
-        self.assertIn("In Progress (1)", body)
-        self.assertIn("Done (1)", body)
+        self.assertIn("Second board done card", body)
+        self.assertIn("Backlog (2)", body)
+        self.assertIn("In Progress (2)", body)
+        self.assertIn("Done (2)", body)
         self.assertIn('name="return_view" value="overview"', body)
 
         query = urlencode({
             "project": project_id,
             "board": board_id,
             "view": "overview",
-            "column": backlog.id,
+            "column": "backlog",
         })
         status, _, body = self.request("GET", f"/?{query}")
         self.assertEqual(status, 200)
-        self.assertIn("Backlog overview card", body)
+        self.assertIn("First board backlog card", body)
+        self.assertIn("Second board backlog card", body)
         self.assertNotIn("Progress overview card", body)
+        self.assertNotIn("Second board progress card", body)
         self.assertNotIn("Done overview card", body)
+        self.assertNotIn("Second board done card", body)
 
     def test_board_view_has_overview_button(self):
         status, _, body = self.request("GET", "/")
         self.assertEqual(status, 200)
-        self.assertIn("Card overview", body)
+        self.assertIn("Project overview", body)
         self.assertIn("view=overview", body)
 
     def test_post_without_csrf_is_rejected(self):
