@@ -1,0 +1,15 @@
+[Unit]
+Description=CachyKanban private web interface
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=@PROJECT_ROOT@
+ExecStart=@PYTHON@ -m cachykanban.web
+Restart=on-failure
+RestartSec=3
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target

@@ -2,7 +2,50 @@
 
 Offline, native Kanban board for Arch Linux (PySide6/Qt). Multiple projects,
 each with multiple boards, customizable columns, and cards with markdown notes,
-labels, checklists, and priority. Local JSON storage — no account, no network.
+labels, checklists, and priority. Local JSON storage with an optional private
+web interface for access from other devices on the same Tailscale network.
+
+## Private remote access
+
+The companion web interface uses the same project files as the desktop app. It
+supports switching projects and boards, adding and editing cards, labels,
+checklists, priorities, moving cards between columns, archiving, and deletion.
+It listens only on `127.0.0.1:8766`; Tailscale Serve supplies private HTTPS to
+devices signed into this tailnet.
+
+Install and start it once:
+
+```bash
+./install-web.sh
+```
+
+Then open:
+
+`https://your-device.your-tailnet.ts.net:8444`
+
+The installer prints the exact private URL for the current Tailscale network.
+
+Operations:
+
+```bash
+systemctl --user status cachykanban-web
+systemctl --user restart cachykanban-web
+journalctl --user -u cachykanban-web -f
+tailscale serve status
+```
+
+To stop remote access without deleting any board data:
+
+```bash
+tailscale serve --https=8444 off
+systemctl --user disable --now cachykanban-web
+```
+
+Do not expose this service with Tailscale Funnel or router port forwarding. The
+web interface is intended only for the private tailnet. If the desktop app was
+left open while remote edits were made, restart it before making desktop edits
+so it reloads the latest project files. Project, board, column, and label
+management remain in the desktop app; the remote interface is focused on cards.
 
 ## Double-click to run
 
