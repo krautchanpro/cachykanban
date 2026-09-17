@@ -273,6 +273,50 @@ class ProjectSelectorTests(unittest.TestCase):
         finally:
             window.close()
 
+    def test_external_card_change_reloads_open_desktop_board(self):
+        from cachykanban.controller import Controller
+        from cachykanban.ui.main_window import MainWindow
+
+        window = MainWindow(self.controller)
+        try:
+            project_id = self.controller.project.id
+            board_id = self.controller.board.id
+            column_id = self.controller.board.columns[0].id
+
+            external = Controller(self.controller.store)
+            external.load()
+            external.open_project(project_id, board_id)
+            added = external.add_card(column_id, "Added remotely")
+
+            self.assertIsNone(self.controller.board.find_card(added.id))
+            self.assertTrue(window._disk_content_changed())
+            window._reload_external_changes()
+
+            self.assertEqual(self.controller.project.id, project_id)
+            self.assertEqual(self.controller.board.id, board_id)
+            self.assertIsNotNone(self.controller.board.find_card(added.id))
+            self.assertFalse(window._disk_content_changed())
+        finally:
+            window.close()
+
+    def test_web_selection_bookkeeping_does_not_force_desktop_reload(self):
+        from cachykanban.controller import Controller
+        from cachykanban.ui.main_window import MainWindow
+
+        second_board = self.controller.add_board("Second board")
+        first_board_id = self.controller.project.boards[0].id
+        self.controller.open_board(first_board_id)
+        window = MainWindow(self.controller)
+        try:
+            external = Controller(self.controller.store)
+            external.load()
+            external.open_project(self.controller.project.id, second_board.id)
+
+            self.assertFalse(window._disk_content_changed())
+            self.assertEqual(self.controller.board.id, first_board_id)
+        finally:
+            window.close()
+
 
 if __name__ == "__main__":
     unittest.main()

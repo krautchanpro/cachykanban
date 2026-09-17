@@ -42,10 +42,11 @@ systemctl --user disable --now cachykanban-web
 ```
 
 Do not expose this service with Tailscale Funnel or router port forwarding. The
-web interface is intended only for the private tailnet. If the desktop app was
-left open while remote edits were made, restart it before making desktop edits
-so it reloads the latest project files. Project, board, column, and label
-management remain in the desktop app; the remote interface is focused on cards.
+web interface is intended only for the private tailnet. An open desktop app
+automatically detects remote card changes and refreshes within about two
+seconds, while keeping its current project and board selected. Project, board,
+column, and label management remain in the desktop app; the remote interface is
+focused on cards.
 
 ## Double-click to run
 
